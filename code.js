@@ -1707,4 +1707,5 @@
     }
 
     Scratch.extensions.register(new TelegramBotAPIExtension());
+
 })(Scratch);
