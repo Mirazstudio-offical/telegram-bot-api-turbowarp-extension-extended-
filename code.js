@@ -415,11 +415,12 @@
                     {
                         opcode: "addInlineButtonToInlineButtonsArray",
                         blockType: Scratch.BlockType.COMMAND,
-                        text: "добавить кнопку с текстом [TEXT] и типом [TYPE] с данными [DATA] в массив кнопок",
+                        text: "добавить кнопку [TEXT] типа [TYPE] (данные: [DATA], стиль: [STYLE]) в массив кнопок",
                         arguments: {
-                            TEXT: { type: Scratch.ArgumentType.STRING, defaultValue: "Кнопка 1" },
-                            TYPE: { type: Scratch.ArgumentType.STRING, menu: "INLINE_BUTTONS_ARRAY_TYPE_MENU", },
-                            DATA: { type: Scratch.ArgumentType.STRING, defaultValue: "data_1" }
+                            TEXT: { type: Scratch.ArgumentType.STRING, defaultValue: "Кнопка" },
+                            TYPE: { type: Scratch.ArgumentType.STRING, menu: "INLINE_BUTTONS_ARRAY_TYPE_MENU" },
+                            DATA: { type: Scratch.ArgumentType.STRING, defaultValue: "data_1" },
+                            STYLE: { type: Scratch.ArgumentType.STRING, menu: "INLINE_BUTTON_STYLE_MENU" }
                         }
                     },
                     {
@@ -914,8 +915,30 @@
                 ],
                 menus: {
                     PARSE_MODE_MENU: { acceptReporters: false, items: ["нет", "Markdown", "HTML"] },
-                    INLINE_BUTTONS_ARRAY_TYPE_MENU: { acceptReporters: false, items: ["данные", "ссылка"] },
-                    CALLBACK_ANSWER_TYPE_MENU: { acceptReporters: false, items: ["уведомление", "предупреждение"] },
+                    INLINE_BUTTONS_ARRAY_TYPE_MENU: {
+                        acceptReporters: false,
+                        items: [
+                            "данные",
+                            "ссылка",
+                            "веб-приложение",
+                            "логин",
+                            "копировать текст",
+                            "инлайн-запрос",
+                            "инлайн-запрос (текущий чат)",
+                            "инлайн-запрос (выбор чата)",
+                            "игра",
+                            "оплата"
+                        ]
+                    },
+                    INLINE_BUTTON_STYLE_MENU: {
+                        acceptReporters: false,
+                        items: [
+                            "обычная",
+                            "primary (синяя)",
+                            "success (зеленая)",
+                            "danger (красная)"
+                        ]
+                    }, CALLBACK_ANSWER_TYPE_MENU: { acceptReporters: false, items: ["уведомление", "предупреждение"] },
                     GETMESSAGE_TYPE_MENU: {
                         acceptReporters: false,
                         items: [
@@ -1382,10 +1405,71 @@
         addInlineButtonToInlineButtonsArray(args) {
             if (this.inlineButtons.length === 0) this.inlineButtons.push([]);
             const lastRow = this.inlineButtons[this.inlineButtons.length - 1];
-            if (args.TYPE === "данные") lastRow.push({ "text": args.TEXT, "callback_data": args.DATA });
-            else if (args.TYPE === "ссылка") lastRow.push({ "text": args.TEXT, "url": args.DATA });
-        }
 
+            const btn = { text: args.TEXT };
+
+            // Обработка стиля (цвета)
+            // Примечание: работает только для Premium-ботов или ботов с Fragment-юзернеймами, согласно документации
+            switch (args.STYLE) {
+                case "primary (синяя)": btn.style = "primary"; break;
+                case "success (зеленая)": btn.style = "success"; break;
+                case "danger (красная)": btn.style = "danger"; break;
+                // Если "обычная", поле style не добавляем
+            }
+
+            // Обработка типов кнопок
+            switch (args.TYPE) {
+                case "данные":
+                    btn.callback_data = args.DATA;
+                    break;
+                case "ссылка":
+                    btn.url = args.DATA;
+                    break;
+                case "веб-приложение":
+                    // DATA должна быть URL
+                    btn.web_app = { url: args.DATA };
+                    break;
+                case "логин":
+                    // DATA должна быть URL
+                    btn.login_url = { url: args.DATA };
+                    break;
+                case "копировать текст":
+                    // DATA - текст для копирования
+                    btn.copy_text = { text: args.DATA };
+                    break;
+                case "инлайн-запрос":
+                    // DATA - текст запроса
+                    btn.switch_inline_query = args.DATA;
+                    break;
+                case "инлайн-запрос (текущий чат)":
+                    // DATA - текст запроса
+                    btn.switch_inline_query_current_chat = args.DATA;
+                    break;
+                case "инлайн-запрос (выбор чата)":
+                    // DATA - текст запроса. 
+                    // По умолчанию разрешаем все типы чатов, так как через один аргумент DATA сложно передать настройки фильтров.
+                    btn.switch_inline_query_chosen_chat = {
+                        query: args.DATA,
+                        allow_user_chats: true,
+                        allow_bot_chats: true,
+                        allow_group_chats: true,
+                        allow_channel_chats: true
+                    };
+                    break;
+                case "игра":
+                    // DATA игнорируется, так как callback_game это пустой объект (вся логика в Game API)
+                    // Важно: Кнопка должна быть ПЕРВОЙ в строке.
+                    btn.callback_game = {};
+                    break;
+                case "оплата":
+                    // DATA игнорируется
+                    // Важно: Кнопка должна быть ПЕРВОЙ в строке и использоваться в Invoice.
+                    btn.pay = true;
+                    break;
+            }
+
+            lastRow.push(btn);
+        }
         startNewLineOfInlineButtons() {
             this.inlineButtons.push([]);
         }
@@ -1707,5 +1791,4 @@
     }
 
     Scratch.extensions.register(new TelegramBotAPIExtension());
-
 })(Scratch);
